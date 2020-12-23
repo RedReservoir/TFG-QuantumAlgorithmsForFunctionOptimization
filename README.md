@@ -1,2 +1,2 @@
-# TFG-QuantumGradientOptimization
-Quantum algorithms for function optimization (using gradients)
+# TFG-QuantumFunctionOptimization
+Quantum algorithms for function optimization
