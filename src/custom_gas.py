@@ -1,19 +1,15 @@
 from qiskit import *
-from binarycostfunction import *
+
+from custom_gates import *
+from custom_qft import *
+
+from binary_cost_function import *
+
 import math
 
-def create_ug_circuit(m, theta):
-    qc = QuantumCircuit()
-    
-    qr = QuantumRegister(m, "q")
-    qc.add_register(qr)
-    
-    for i in range(m):
-        qc.rz(2**(m-i-1) * theta, qr[i])
-    
-    return qc
 
-def create_binary_clause_circuit(m, binary_clause, value):
+#Creates an UG gate controlled on the bits of a binary clause
+def bc_circuit(m, binary_clause, value):
     n = binary_clause.num_bits
     num_active_bits = binary_clause.num_active_bits()
     pos_active_bits = binary_clause.pos_active_bits()
@@ -29,7 +25,7 @@ def create_binary_clause_circuit(m, binary_clause, value):
         if binary_clause.bit(pos_active_bit) == "0":
             qc.x(qr_ctrl[pos_active_bit])
     
-    ctrl_ug_gate = create_ug_circuit(m, 2**(1-m)*math.pi*value).to_gate(label = "UG {0:f}".format(2**(1-m)*math.pi*value))
+    ctrl_ug_gate = UG_circuit(m, 2**(1-m)*math.pi*value).to_gate(label = "$R_{%d}(2^{%d} \\pi \\cdot %d)$"%(m, 1-m, value))
     if num_active_bits != 0:
         ctrl_ug_gate = ctrl_ug_gate.control(num_active_bits)
     qc.append(
@@ -43,7 +39,9 @@ def create_binary_clause_circuit(m, binary_clause, value):
      
     return qc
 
-def create_binary_cost_function_circuit(m, binary_cost_function):
+
+#Creates UG gates for all binary clauses of a cost function
+def bcf_circuit(m, binary_cost_function):
     n = binary_cost_function.num_bits
 
     qc = QuantumCircuit()
@@ -54,12 +52,14 @@ def create_binary_cost_function_circuit(m, binary_cost_function):
     qc.add_register(qr_trgt)
     
     for clause, value in binary_cost_function.clauses.items():
-        clause_gate = create_binary_clause_circuit(m, clause, value).to_gate(label = "BC {0:d} * {1:s}".format(value, str(clause)))
+        clause_gate = bc_circuit(m, clause, value).to_gate(label = "$BC: %d \\cdot %s$"%(value, str(clause)))
         qc.append(clause_gate, qr_ctrl[0:n] + qr_trgt[0:m])
         
     return qc
 
-def create_inverse_binary_cost_function_circuit(m, binary_cost_function):
+
+#Inverse of bcf_circuit
+def bcf_inv_circuit(m, binary_cost_function):
     n = binary_cost_function.num_bits
 
     qc = QuantumCircuit()
@@ -70,12 +70,14 @@ def create_inverse_binary_cost_function_circuit(m, binary_cost_function):
     qc.add_register(qr_trgt)
     
     for clause, value in binary_cost_function.clauses.items():
-        clause_gate = create_binary_clause_circuit(m, clause, -value).to_gate(label = "BC {0:d} * {1:s}".format(-value, str(clause)))
+        clause_gate = bc_circuit(m, clause, -value).to_gate(label = "$BC: %d \\cdot %s$"%(-value, str(clause)))
         qc.append(clause_gate, qr_ctrl[0:n] + qr_trgt[0:m])
         
     return qc
 
-def create_A_circuit(m, binary_cost_function):
+
+#Preparation operator A, which uses the custom implementation of the inverse QFT
+def A_circuit(m, binary_cost_function):
     n = binary_cost_function.num_bits
     
     qc = QuantumCircuit()
@@ -88,18 +90,17 @@ def create_A_circuit(m, binary_cost_function):
     qc.h(qr_strs)
     qc.h(qr_vals)
 
-    bcf_gate = create_binary_cost_function_circuit(m, binary_cost_function).to_gate(label = "BCF")
+    bcf_gate = bcf_circuit(m, binary_cost_function).to_gate(label = "$BCF$")
     qc.append(bcf_gate, qr_strs[0:n] + qr_vals[0:m])
 
-    inv_qft_gate = qiskit.circuit.library.QFT(num_qubits = m, inverse = True, do_swaps = True).to_gate(label = "QFT^-1")
+    inv_qft_gate = QFT_inv_circuit(m).to_gate(label = "$\\mathrm{QFT}_{%d}^{-1}$"%(m))
     qc.append(inv_qft_gate, qr_vals)
-
-    for i in range(m//2):
-        qc.swap(qr_vals[i], qr_vals[m-1 - i])
         
     return qc
 
-def create_inverse_A_circuit(m, binary_cost_function):
+
+#Inverse of A_circuit, which uses the custom implementation of the QFT
+def A_inv_circuit(m, binary_cost_function):
     n = binary_cost_function.num_bits
         
     qc = QuantumCircuit()
@@ -109,13 +110,10 @@ def create_inverse_A_circuit(m, binary_cost_function):
     qc.add_register(qr_strs)
     qc.add_register(qr_vals)
     
-    for i in range(m//2):
-        qc.swap(qr_vals[i], qr_vals[m-1 - i])
-
-    qft_gate = qiskit.circuit.library.QFT(num_qubits = m, inverse = False, do_swaps = True).to_gate(label = "QFT")
+    qft_gate = QFT_circuit(m).to_gate(label = "$\\mathrm{QFT}_{%d}$"%(m))
     qc.append(qft_gate, qr_vals)
     
-    inverse_bcf_gate = create_inverse_binary_cost_function_circuit(m, binary_cost_function).to_gate(label = "BCF^-1")
+    inverse_bcf_gate = bcf_inv_circuit(m, binary_cost_function).to_gate(label = "$BCF^{-1}$")
     qc.append(inverse_bcf_gate, qr_strs[0:n] + qr_vals[0:m])
     
     qc.h(qr_strs)
@@ -123,7 +121,9 @@ def create_inverse_A_circuit(m, binary_cost_function):
     
     return qc
         
-def create_O_circuit(m):
+
+#The oracle O
+def O_circuit(m):
     qc = QuantumCircuit()
     
     qr = QuantumRegister(m)
@@ -133,7 +133,9 @@ def create_O_circuit(m):
     
     return qc
 
-def create_D_circuit(n):
+
+# The diffusor D
+def D_circuit(n):
     qc = QuantumCircuit()
     
     qr = QuantumRegister(n)
@@ -145,7 +147,9 @@ def create_D_circuit(n):
     
     return qc
 
-def create_G_circuit(m, binary_cost_function):
+
+#The Grover iterator G
+def G_circuit(m, binary_cost_function):
     n = binary_cost_function.num_bits
         
     qc = QuantumCircuit()
@@ -155,21 +159,24 @@ def create_G_circuit(m, binary_cost_function):
     qc.add_register(qr_strs)
     qc.add_register(qr_vals)
     
-    O_gate = create_O_circuit(m).to_gate(label = "O")
+    O_gate = O_circuit(m).to_gate(label = "$O$")
     qc.append(O_gate, qr_vals)
     
-    inv_A_gate = create_inverse_A_circuit(m, binary_cost_function).to_gate(label = "A^-1")
-    qc.append(inv_A_gate, qr_strs[0:n] + qr_vals[0:m])
+    inverse_A_gate = A_inv_circuit(m, binary_cost_function).to_gate(label = "$A^{-1}$")
+    qc.append(inverse_A_gate, qr_strs[0:n] + qr_vals[0:m])
     
-    D_gate = create_D_circuit(n).to_gate(label = "D")
+    D_gate = D_circuit(n).to_gate(label = "$D$")
     qc.append(D_gate, qr_strs)
     
-    A_gate = create_A_circuit(m, binary_cost_function).to_gate(label = "A")
+    A_gate = A_circuit(m, binary_cost_function).to_gate(label = "$A$")
     qc.append(A_gate, qr_strs[0:n] + qr_vals[0:m])
     
     return qc
 
-def create_GAS_circuit(m, binary_cost_function, threshold, r):
+
+#The complete Grover Adaptive Search circuit
+#Can input threshold and number of iterations r
+def GAS_circuit(m, binary_cost_function, threshold, r):
     bcf_copy = binary_cost_function.copy()
     
     n = bcf_copy.num_bits
@@ -179,21 +186,14 @@ def create_GAS_circuit(m, binary_cost_function, threshold, r):
     
     qr_strs = QuantumRegister(n, "strs")
     qr_vals = QuantumRegister(m, "vals")
-    cr_strs = ClassicalRegister(n, "cl_strs")
-    cr_vals = ClassicalRegister(m, "cl_vals")
     qc.add_register(qr_strs)
     qc.add_register(qr_vals)
-    qc.add_register(cr_strs)
-    qc.add_register(cr_vals)
     
-    A_gate = create_A_circuit(m, bcf_copy).to_gate(label = "A")
+    A_gate = A_circuit(m, bcf_copy).to_gate(label = "$A$")
     qc.append(A_gate, qr_strs[0:n] + qr_vals[0:m])
     
-    G_gate = create_G_circuit(m, bcf_copy).to_gate(label = "G")
+    G_gate = G_circuit(m, bcf_copy).to_gate(label = "$G$")
     for i in range(r):
         qc.append(G_gate, qr_strs[0:n] + qr_vals[0:m])
-    
-    qc.measure(qr_strs, cr_strs)
-    qc.measure(qr_vals, cr_vals)
     
     return qc
