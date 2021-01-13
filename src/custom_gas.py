@@ -180,7 +180,7 @@ def GAS_circuit(m, binary_cost_function, threshold, r):
     bcf_copy = binary_cost_function.copy()
     
     n = bcf_copy.num_bits
-    bcf_copy.add_clause(BinaryClause("X" * n), threshold)
+    bcf_copy.add_clause(BinaryClause("X" * n), -threshold)
     
     qc = QuantumCircuit()
     
