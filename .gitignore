@@ -1,3 +1,4 @@
 src/creds.txt
 **/.ipynb_checkpoints
-**/trash.py
+**/trash*.py
+**/trash*.ipynb

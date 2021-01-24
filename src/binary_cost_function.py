@@ -1,6 +1,7 @@
 from functools import reduce
 from random import randint, random
 from num_base_converter import *
+from hashlib import md5
 
 
 class InvalidNumBitsError(Exception):
@@ -103,13 +104,36 @@ class BinaryCostFunction:
         for i in range(2**self.num_bits - 1):
             act_str = dec_to_bin(i, self.num_bits)
             act_val = self.evaluate(act_str)
-            if act_val > min_val:
+            if act_val > max_val:
                 best_str = act_str
                 max_val = act_val
         return best_str, max_val
 
+    def num_clauses_less(self, threshold):
+        num_clauses = 0
+        for i in range(2**self.num_bits - 1):
+            act_str = dec_to_bin(i, self.num_bits)
+            act_val = self.evaluate(act_str)
+            if act_val < threshold:
+                num_clauses += 1
+        return num_clauses 
+
+    def num_clauses_more(self, threshold):
+        num_clauses = 0
+        for i in range(2**self.num_bits - 1):
+            act_str = dec_to_bin(i, self.num_bits)
+            act_val = self.evaluate(act_str)
+            if act_val > threshold:
+                num_clauses += 1
+        return num_clauses   
+
     def get_values(self):
         return list(map(lambda cv: cv[1], self.clauses.items()))
+
+    def generate_hash_ID(self):
+        h = md5()
+        h.update(str(self).encode("utf-8"))
+        return h.hexdigest()
 
 
 def generate_random_bc(num_bits, spec):
