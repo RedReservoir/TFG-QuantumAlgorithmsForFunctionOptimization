@@ -1,4 +1,4 @@
-# TFG-QuantumFunctionOptimization
+# TFG-QuantumAlgorithmsForFunctionOptimization
 
 This project contains implementations, interactive test runs and visualizations of the Phase Estimation, Grover Search and Grover Adaptive Search quantum algorithms. The implementations are written in Python3, and the quantum algorithms use the Qiskit (https://github.com/Qiskit) framework.
 
