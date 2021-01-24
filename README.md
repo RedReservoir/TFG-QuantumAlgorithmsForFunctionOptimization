@@ -2,7 +2,7 @@
 
 This project contains implementations, interactive test runs and visualizations of the Phase Estimation, Grover Search and Grover Adaptive Search quantum algorithms. The implementations are written in Python3, and the quantum algorithms use the Qiskit (https://github.com/Qiskit) framework.
 
-To run the code, generate a conda environment using the `requirements.txt` file on the base directory of this repository.
+To install the necessary libraries, generate a conda environment using the `requirements.txt` file on the base directory of this repository.
 
 All code and test run results are in the `src` directory. The files on the `src` directory contain:
 
